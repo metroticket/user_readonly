@@ -3,134 +3,62 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>群組資料查看</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      background-color: #f5f5f5;
-      color: #333;
-    }
-    h1 {
-      font-size: 24px;
-      margin-bottom: 20px;
-      color: #2c3e50;
-    }
-    .unit-block {
-      background-color: #fff;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      padding: 15px;
-      margin-bottom: 15px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    .unit-block h2 {
-      margin: 0 0 10px;
-      font-size: 20px;
-      color: #2980b9;
-    }
-    .info {
-      margin: 5px 0;
-    }
-    #userIdDisplay {
-      margin-bottom: 20px;
-      background-color: #e0f7ff;
-      padding: 10px;
-      border-left: 5px solid #00aaff;
-      font-weight: bold;
-      color: #0077b6;
-    }
-    #message {
-      margin-top: 20px;
-      color: red;
-      font-weight: bold;
-    }
-  </style>
+  <title>群組管理</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
+  <div id="app">載入中...</div>
 
-<h1>群組資料查看</h1>
-<div id="userIdDisplay">載入中...</div>
-<div id="unitList">資料載入中...</div>
-<div id="message"></div>
-
-<script>
-  const sheetCSVUrl1 = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQKQouoZLUeafrmbJHwDKP1e8jIpqVT5I_kGkl4Iv77RXxOrtxOQ2ugvkn0OoT9wRQbvqRwVa0jsTY_/pub?output=csv&gid=2008332016";
-  const sheetCSVUrl2 = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQKQouoZLUeafrmbJHwDKP1e8jIpqVT5I_kGkl4Iv77RXxOrtxOQ2ugvkn0OoT9wRQbvqRwVa0jsTY_/pub?output=csv&gid=1852137465";
-
-  const userIdDisplay = document.getElementById("userIdDisplay");
-  const unitList = document.getElementById("unitList");
-  const messageDiv = document.getElementById("message");
-
-  function parseCSV(text) {
-    const lines = text.trim().split("\n");
-    const headers = lines[0].split(",");
-    return lines.slice(1).map(line => {
-      const values = line.split(",");
-      const obj = {};
-      headers.forEach((h, i) => obj[h.trim()] = values[i] ? values[i].trim() : "");
-      return obj;
-    });
-  }
-
-  async function initReadonlyPage() {
-    try {
-      await liff.init({ liffId: "2007495371-LrlQvZ8Y" });
-
-      if (!liff.isLoggedIn()) {
-        liff.login();
-        return;
-      }
-
-      const profile = await liff.getProfile();
-      const liffUserId = profile.userId;
-      userIdDisplay.textContent = `目前登入的 USER ID：${liffUserId}`;
-
-      const authText = await fetch(sheetCSVUrl2).then(res => res.text());
-      const authData = parseCSV(authText);
-      const userRow = authData.find(row => row["USERID"] === liffUserId && row["核准欄位"] === "v");
-
-      if (!userRow) {
-        unitList.innerHTML = "";
-        messageDiv.textContent = "您無權限查看任何單位資料。";
-        return;
-      }
-
-      const userUnit = userRow["單位"];
-      const groupText = await fetch(sheetCSVUrl1).then(res => res.text());
-      const allGroupData = parseCSV(groupText);
-      const filteredData = allGroupData.filter(d => d["單位名稱"] === userUnit);
-
-      if (filteredData.length === 0) {
-        unitList.innerHTML = "";
-        messageDiv.textContent = "查無群組資料。";
-        return;
-      }
-
-      unitList.innerHTML = "";
-      filteredData.forEach(item => {
-        const block = document.createElement("div");
-        block.className = "unit-block";
-        block.innerHTML = `
-          <h2>${item["單位名稱"]}</h2>
-          <div class="info">群組 ID：${item["群組id"] || "未設定"}</div>
-          <div class="info">緊急聯絡人1：${item["緊急聯絡人1"] || "未設定"}</div>
-          <div class="info">緊急聯絡人2：${item["緊急聯絡人2"] || "未設定"}</div>
-        `;
-        unitList.appendChild(block);
-      });
-
-    } catch (e) {
-      console.error("資料載入錯誤", e);
-      unitList.innerHTML = "";
-      messageDiv.textContent = "載入失敗，請稍後再試。";
+  <script>
+    function getQueryParam(name) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(name);
     }
-  }
 
-  // 匯出給 index.html 使用（如從 iframe 或 innerHTML 載入時手動觸發）
-  window.initReadonlyPage = initReadonlyPage;
-  initReadonlyPage();
-</script>
+    const app = document.getElementById("app");
+
+    async function initLIFFAndLoadPage() {
+      try {
+        await liff.init({ liffId: "2007495371-LrlQvZ8Y" });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        const liffUserId = profile.userId;
+        sessionStorage.setItem("liffUserId", liffUserId);
+
+        const page = getQueryParam("page");
+
+        if (page === "1") {
+          // 載入只讀頁面
+          const res = await fetch("readonly.html");
+          const html = await res.text();
+          app.innerHTML = html;
+
+          // 初始化只讀頁面
+          setTimeout(() => {
+            if (typeof initReadonlyPage === "function") {
+              initReadonlyPage();
+            }
+          }, 100);
+        } else {
+          // 預設頁面選單
+          app.innerHTML = `
+            <h2>請選擇頁面</h2>
+            <p><a href="?page=1">查看群組資料（只讀）</a></p>
+            <p><a href="?page=2">編輯群組資料（需權限）</a></p>
+          `;
+        }
+      } catch (error) {
+        console.error("LIFF初始化失敗", error);
+        app.innerHTML = "LIFF初始化失敗，請稍後再試。";
+      }
+    }
+
+    initLIFFAndLoadPage();
+  </script>
 </body>
 </html>
