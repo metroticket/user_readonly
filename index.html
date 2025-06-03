@@ -1,64 +1,45 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>群組管理</title>
+  <title>發送位置</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
-  <div id="app">載入中...</div>
+  <h3>正在取得位置...</h3>
 
   <script>
-    function getQueryParam(name) {
-      const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get(name);
-    }
+    async function main() {
+      await liff.init({ liffId: "2007495371-gEdQ5pM7" });
 
-    const app = document.getElementById("app");
-
-    async function initLIFFAndLoadPage() {
-      try {
-        await liff.init({ liffId: "2007495371-LrlQvZ8Y" });
-
-        if (!liff.isLoggedIn()) {
-          liff.login();
-          return;
-        }
-
-        const profile = await liff.getProfile();
-        const liffUserId = profile.userId;
-        sessionStorage.setItem("liffUserId", liffUserId);
-
-        const page = getQueryParam("page");
-
-        if (page === "1") {
-          // 載入只讀頁面
-          const res = await fetch("readonly.html");
-          const html = await res.text();
-          app.innerHTML = html;
-
-          // 初始化只讀頁面
-          setTimeout(() => {
-            if (typeof initReadonlyPage === "function") {
-              initReadonlyPage();
-            }
-          }, 100);
-        } else {
-          // 預設頁面選單
-          app.innerHTML = `
-            <h2>請選擇頁面</h2>
-            <p><a href="?page=1">查看群組資料（只讀）</a></p>
-            <p><a href="?page=2">編輯群組資料（需權限）</a></p>
-          `;
-        }
-      } catch (error) {
-        console.error("LIFF初始化失敗", error);
-        app.innerHTML = "LIFF初始化失敗，請稍後再試。";
+      if (!liff.isInClient()) {
+        document.body.innerHTML = "請從 LINE 中開啟";
+        return;
       }
+
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        // 傳送位置訊息
+        await liff.sendMessages([
+          {
+            type: "location",
+            title: "目前位置",
+            address: "使用者所在位置",
+            latitude: lat,
+            longitude: lng
+          }
+        ]);
+
+        // 關閉 LIFF 視窗
+        liff.closeWindow();
+      }, (error) => {
+        alert("無法取得位置：" + error.message);
+        liff.closeWindow();
+      });
     }
 
-    initLIFFAndLoadPage();
+    main();
   </script>
 </body>
 </html>
